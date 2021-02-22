@@ -3,6 +3,11 @@ import datetime
 import argparse
 import csv
 import re
+import requests
+
+CSV_URL = 'http://samplecsvs.s3.amazonaws.com/Sacramentorealestatetransactions.csv'
+
+
 
 
 #http://s3.amazonaws.com/cuny-is211-spring2015/weblog.csv
@@ -17,24 +22,29 @@ def downloadData(url):
         csv_data - data from url in binary format
         csv_content - data from url in human readable format
     """
-    csv_data=urllib.request.urlopen(url)
-    csv_content=csv_data.read().decode()
-    return csv_content
+    with requests.Session() as s:
+        download = s.get(url)
+
+        decoded_content = download.content.decode('utf-8')
+
+        cr = csv.reader(decoded_content.splitlines(), delimiter=',')
+       
+    return list(cr)
 
 
 def processData(data):
     main_ls  = []
     cols = ["file_type", "datetime_accessed", "browser", "status", "bytes"]
-    for row in data.splitlines():
+    for row in data:
         
-        ls = row.split(",")
-        day = datetime.datetime.strptime(ls[1], '%Y-%m-%d %H:%M:%S')
+        day = datetime.datetime.strptime(row[1], '%Y-%m-%d %H:%M:%S')
         # dayformat = ls[1].split(" ")[0]
         #f'{day.month}/{day.day}/{day.year}'
         # ls.append(dayformat)
-        d1=zip(cols, ls)
+        d1=zip(cols, row)
         obj = dict(d1)
         obj["day"] = day
+        
         main_ls.append(obj) 
       
     return main_ls
@@ -61,7 +71,10 @@ def searchBrowserData(data):
             else:
                 browser_obj[browser[0][0]] =  1
     
-    print(f"The most popular browser is: {max(browser_obj, key=browser_obj.get)}")
+    for k, v in browser_obj.items():
+        print(f'{k} has {v} requests')
+    
+    print(f"The most popular browser is {max(browser_obj, key=browser_obj.get)}")
     return max(browser_obj, key=browser_obj.get)
 
 def hitsPerHour(data):
